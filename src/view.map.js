@@ -10,7 +10,7 @@ this.recline.View = this.recline.View || {};
 // This view allows to plot gereferenced records on a map. The location
 // information can be provided in 2 ways:
 //
-// 1. Via a single field. This field must be either a geo_point or 
+// 1. Via a single field. This field must be either a geo_point or
 // [GeoJSON](http://geojson.org) object
 // 2. Via two fields with latitude and longitude coordinates.
 //
@@ -53,7 +53,7 @@ my.Map = Backbone.View.extend({
 
   initialize: function(options) {
     var self = this;
-    this.visible = true;
+    this.visible = this.$el.is(':visible');
     this.mapReady = false;
     // this will be the Leaflet L.Map object (setup below)
     this.map = null;
@@ -318,12 +318,37 @@ my.Map = Backbone.View.extend({
 
     _.each(docs,function(doc){
       for (var key in self.features._layers){
-        if (self.features._layers[key].feature.properties.cid == doc.cid){
+        if (self.features._layers[key].feature.geometry.properties.cid == doc.cid){
           self.features.removeLayer(self.features._layers[key]);
         }
       }
     });
 
+  },
+
+  // Private: convert DMS coordinates to decimal
+  //
+  // north and east are positive, south and west are negative
+  //
+  _parseCoordinateString: function(coord){
+    if (typeof(coord) != 'string') {
+      return(parseFloat(coord));
+    }
+    var dms = coord.split(/[^-?\.\d\w]+/);
+    var deg = 0; var m = 0;
+    var toDeg = [1, 60, 3600]; // conversion factors for Deg, min, sec
+    var i;
+    for (i = 0; i < dms.length; ++i) {
+        if (isNaN(parseFloat(dms[i]))) {
+          continue;
+        }
+        deg += parseFloat(dms[i]) / toDeg[m];
+        m += 1;
+    }
+    if (coord.match(/[SW]/)) {
+          deg = -1*deg;
+    }
+    return(deg);
   },
 
   // Private: Return a GeoJSON geomtry extracted from the record fields
@@ -337,12 +362,12 @@ my.Map = Backbone.View.extend({
           value = $.parseJSON(value);
         } catch(e) {}
       }
-
       if (typeof(value) === 'string') {
         value = value.replace('(', '').replace(')', '');
         var parts = value.split(',');
-        var lat = parseFloat(parts[0]);
-        var lon = parseFloat(parts[1]);
+        var lat = this._parseCoordinateString(parts[0]);
+        var lon = this._parseCoordinateString(parts[1]);
+
         if (!isNaN(lon) && !isNaN(parseFloat(lat))) {
           return {
             "type": "Point",
@@ -370,6 +395,9 @@ my.Map = Backbone.View.extend({
       // We'll create a GeoJSON like point object from the two lat/lon fields
       var lon = doc.get(this.state.get('lonField'));
       var lat = doc.get(this.state.get('latField'));
+      lon = this._parseCoordinateString(lon);
+      lat = this._parseCoordinateString(lat);
+
       if (!isNaN(parseFloat(lon)) && !isNaN(parseFloat(lat))) {
         return {
           type: 'Point',
@@ -433,8 +461,8 @@ my.Map = Backbone.View.extend({
     var self = this;
     this.map = new L.Map(this.$map.get(0));
 
-    var mapUrl = "//otile{s}-s.mqcdn.com/tiles/1.0.0/osm/{z}/{x}/{y}.png";
-    var osmAttribution = 'Map data &copy; 2011 OpenStreetMap contributors, Tiles Courtesy of <a href="http://www.mapquest.com/" target="_blank">MapQuest</a> <img src="//developer.mapquest.com/content/osm/mq_logo.png">';
+    var mapUrl = "http://otile{s}-s.mqcdn.com/tiles/1.0.0/osm/{z}/{x}/{y}.png";
+    var osmAttribution = 'Map data &copy; 2011 OpenStreetMap contributors, Tiles Courtesy of <a href="http://www.mapquest.com/" target="_blank">MapQuest</a> <img src="http://developer.mapquest.com/content/osm/mq_logo.png">';
     var bg = new L.TileLayer(mapUrl, {maxZoom: 18, attribution: osmAttribution ,subdomains: '1234'});
     this.map.addLayer(bg);
 
@@ -483,7 +511,7 @@ my.MapMenu = Backbone.View.extend({
         <div class="editor-field-type-latlon"> \
           <label>Latitude field</label> \
           <div class="input editor-lat-field"> \
-            <select> \
+            <select class="form-control"> \
             <option value=""></option> \
             {{#fields}} \
             <option value="{{id}}">{{label}}</option> \
@@ -492,7 +520,7 @@ my.MapMenu = Backbone.View.extend({
           </div> \
           <label>Longitude field</label> \
           <div class="input editor-lon-field"> \
-            <select> \
+            <select class="form-control"> \
             <option value=""></option> \
             {{#fields}} \
             <option value="{{id}}">{{label}}</option> \
@@ -503,7 +531,7 @@ my.MapMenu = Backbone.View.extend({
         <div class="editor-field-type-geom" style="display:none"> \
           <label>Geometry field (GeoJSON)</label> \
           <div class="input editor-geom-field"> \
-            <select> \
+            <select class="form-control"> \
             <option value=""></option> \
             {{#fields}} \
             <option value="{{id}}">{{label}}</option> \
@@ -513,7 +541,7 @@ my.MapMenu = Backbone.View.extend({
         </div> \
       </div> \
       <div class="editor-buttons"> \
-        <button class="btn editor-update-map">Update</button> \
+        <button class="btn btn-default editor-update-map">Update</button> \
       </div> \
       <div class="editor-options" > \
         <label class="checkbox"> \
@@ -642,4 +670,3 @@ my.MapMenu = Backbone.View.extend({
 });
 
 })(jQuery, recline.View);
-

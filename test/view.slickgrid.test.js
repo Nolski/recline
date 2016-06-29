@@ -7,13 +7,14 @@ test('basic', function () {
   var view = new recline.View.SlickGrid({
     model: dataset
   });
+
   $('.fixtures .test-datatable').append(view.el);
   view.render();
 
   // Render the grid manually
   view.grid.init();
 
-  assertPresent('.slick-header-column[title="x"]');
+  equal($('.slick-header-column:gt(1):first').find('.slick-column-name').html(), 'x');
   equal($('.slick-header-column').length,dataset.fields.length);
 
   equal(dataset.records.length,view.grid.getDataLength());
@@ -27,7 +28,7 @@ test('state', function () {
   var view = new recline.View.SlickGrid({
     model: dataset,
     state: {
-      hiddenColumns:['x','lat','title'],
+      hiddenColumns:['x','lat','title','p'],
       columnsOrder:['lon','id','z','date', 'y', 'country'],
       columnsWidth:[
         {column:'id',width: 250}
@@ -45,16 +46,17 @@ test('state', function () {
   });
 
   // Hidden columns
-  assertPresent('.slick-header-column[title="y"]');
-  assertNotPresent('.slick-header-column[title="x"]');
-  var headers = $('.slick-header-column');
-  equal(headers.length,visibleColumns.length);
+  equal($('.slick-header-column:gt(3):first').find('.slick-column-name').html(), 'y');
+  equal($('.slick-column-name:contains(x)').length, 0)
+  var headerNames = []
+  $('.slick-column-name').each(function() { headerNames.push($(this).text()) });
+  equal(headerNames.length,visibleColumns.length);
 
   // Column order
-  deepEqual(_.pluck(headers,'title'),view.state.get('columnsOrder'));
+  deepEqual(headerNames,view.state.get('columnsOrder'));
 
   // Column width
-  equal($('.slick-header-column[title="id"]').width(),250);
+  equal($('.slick-column-name:contains(id)').parent().width(),250);
 
   // Editable grid
   equal(true, view.grid.getOptions().editable);
@@ -71,7 +73,7 @@ test('editable', function () {
   var view = new recline.View.SlickGrid({
     model: dataset,
     state: {
-      hiddenColumns:['x','lat','title'],
+      hiddenColumns:['x','lat','title','p'],
       columnsOrder:['lon','id','z','date', 'y', 'country'],
       columnsWidth:[
         {column:'id',width: 250}
@@ -103,12 +105,130 @@ test('editable', function () {
   view.remove();
 });
 
+test('delete-row' , function(){
+  var dataset = Fixture.getDataset();
+  var view = new recline.View.SlickGrid({
+    model: dataset,
+    state: {
+      hiddenColumns:['x','lat','title','p'],
+      columnsOrder:['lon','id','z','date', 'y', 'country'],
+      columnsWidth:[
+        {column:'id',width: 250}
+      ],
+      gridOptions: {editable: true , "enabledDelRow":true },
+      columnsEditor: [{column: 'country', editor: Slick.Editors.Text}]
+    }
+  });
+
+  $('.fixtures .test-datatable').append(view.el);
+  view.render();
+  view.show();
+  old_length = dataset.records.length
+  dataset.records.on('remove', function(record){
+    equal(dataset.records.length, old_length  -1 );
+  });
+  // Be sure a cell change triggers a change of the model
+  e = new Slick.EventData();
+  view.grid.onClick.notify({
+    row: 1,
+    cell: 0,
+    grid: view.grid
+  }, e, view.grid);
+
+  view.remove();
+
+
+});
+
+
+//Test delete row with RowReorder set to True , This is The same
+// test as above (delete-row), the only diference is that here we Enable
+// row ReOrder to true, so The cell That handle delete row of grid is
+// 1 instead of 0.
+
+// The cell of grid that handle row delete is The first cell (0) if
+// The grid ReOrder is not present ie  enableReOrderRow == false
+// else it is The the second cell (1) , because The 0 is now cell
+// that handle row Reoder.
+
+test('delete-row-with-row-reorder-activated' , function(){
+  var dataset = Fixture.getDataset();
+  var view = new recline.View.SlickGrid({
+    model: dataset,
+    state: {
+      hiddenColumns:['x','lat','title','p'],
+      columnsOrder:['lon','id','z','date', 'y', 'country'],
+      columnsWidth:[
+        {column:'id',width: 250}
+      ],
+      gridOptions: {editable: true , "enabledDelRow":true , "enableReOrderRow":true},
+      columnsEditor: [{column: 'country', editor: Slick.Editors.Text}]
+    }
+  });
+
+  $('.fixtures .test-datatable').append(view.el);
+  view.render();
+  view.show();
+  old_length = dataset.records.length
+  dataset.records.on('remove', function(record){
+    equal(dataset.records.length, old_length  -1 );
+  });
+  // Be sure a cell change triggers a change of the model
+  e = new Slick.EventData();
+  view.grid.onClick.notify({
+    row: 1,
+    // cell is 1 instead of 0
+    cell: 1,
+    grid: view.grid
+  }, e, view.grid);
+
+  view.remove();
+
+
+});
+
+
+test('add-row' , function(){
+//To test adding row on slickgrid , we add some menu GridControl
+//I am based on the FlotControl in flot wiewer , to add a similary
+//to the sclickgrid , The GridControl add a bouton menu 
+//one the .side-bar place , which will allow to add a row to 
+//the grid on-click
+
+var dataset = Fixture.getDataset();
+  var view = new recline.View.SlickGrid({
+    model: dataset,
+    state: {
+      hiddenColumns:['x','lat','title','p'],
+      columnsOrder:['lon','id','z','date', 'y', 'country'],
+      columnsWidth:[
+        {column:'id',width: 250}
+      ],
+      gridOptions: {editable: true , "enabledAddRow":true},
+      columnsEditor: [{column: 'country', editor: Slick.Editors.Text}]
+    }
+  });
+
+// view will auto render ...
+assertPresent('.recline-row-add', view.elSidebar);
+// see recline.SlickGrid.GridControl widget
+//view.render()
+old_length = dataset.records.length
+dataset.records.on('add',function(record){
+  equal(dataset.records.length ,old_length + 1 ) 
+});
+
+view.elSidebar.find('.recline-row-add').click();
+
+});
+
+
 test('update', function() {
   var dataset = Fixture.getDataset();
   var view = new recline.View.SlickGrid({
     model: dataset,
     state: {
-      hiddenColumns:['x','lat','title'],
+      hiddenColumns:['x','lat','title','p'],
       columnsOrder:['lon','id','z','date', 'y', 'country'],
       columnsWidth:[
         {column:'id',width: 250}

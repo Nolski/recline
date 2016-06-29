@@ -177,6 +177,33 @@ test('Dataset getFieldsSummary', function () {
   });
 });
 
+test('query with Query model', function () {
+  var dataset = new recline.Model.Dataset({
+    records: [{country: 'UK'}, {country: 'DE'}]
+  });
+  var query = new recline.Model.Query();
+  query.addFilter({type: 'term', field: 'country', term: 'DE'});
+
+  dataset.query(query).done(function (results) {
+    deepEqual(results.length, 1);
+    deepEqual(results.models[0].toJSON(), {country: 'DE'});
+  });
+});
+
+test('query with plain object', function () {
+  var dataset = new recline.Model.Dataset({
+    records: [{country: 'UK'}, {country: 'DE'}]
+  });
+  var query = {q: 'DE'};
+
+  dataset.query(query).done(function (results) {
+    deepEqual(results.length, 1);
+    deepEqual(results.models[0].toJSON(), {country: 'DE'});
+  });
+});
+
+// TODO: this has a dependency on the external csv backend
+// May want to refactor or remove (?)
 test('fetch without and with explicit fields', function () {
   var dataset = new recline.Model.Dataset({
     backend: 'csv',
@@ -347,6 +374,30 @@ test('Query', function () {
   deepEqual({terms: {field: 'xyz'}}, query.get('facets')['xyz']);
 });
 
+test('Query.addFacet', function () {
+  var query = new recline.Model.Query();
+  query.addFacet('xyz', 25);
+  deepEqual({terms: {field: 'xyz', "size": 25}}, query.get('facets')['xyz']);
+});
+
+test('Query.removeFacet', function () {
+  var query = new recline.Model.Query();
+  query.addFacet('xyz');
+  deepEqual({terms: {field: 'xyz'}}, query.get('facets')['xyz']);
+  query.removeFacet('xyz');
+  equal(undefined, query.get('facets')['xyz']);
+});
+
+test('Query.clearFacets', function () {
+  var query = new recline.Model.Query();
+  query.addFacet('abc');
+  query.addFacet('xyz');
+  deepEqual({terms: {field: 'xyz'}}, query.get('facets')['xyz']);
+  deepEqual({terms: {field: 'abc'}}, query.get('facets')['abc']);
+  query.clearFacets();
+  deepEqual({}, query.get('facets'));
+});
+
 test('Query.addFilter', function () {
   var query = new recline.Model.Query();
   query.addFilter({type: 'term', field: 'xyz'});
@@ -372,6 +423,58 @@ test('Query.addFilter', function () {
     type: 'geo_distance'
   };
   deepEqual(exp, query.get('filters')[2]);
+});
+
+test('Query.replaceFilter', function () {
+  var query = new recline.Model.Query();
+  query.addFilter({type: 'term', field: 'xyz', term: 'one'});
+  var exp = {
+    field: 'xyz',
+    type: 'term',
+    term: 'one'
+  };
+  deepEqual(query.get('filters')[0], exp);
+
+  query.replaceFilter({type: 'term', field: 'xyz', term: 'two'});
+  exp = {
+    field: 'xyz',
+    type: 'term',
+    term: 'two'
+  };
+  deepEqual(query.get('filters')[0], exp);
+
+});
+
+test('Query.replaceFilter first filter', function () {
+  // replaceFilter changes filter order
+  var query = new recline.Model.Query();
+  query.addFilter({type: 'term', field: 'abc', term: 'one'});
+  query.addFilter({type: 'term', field: 'xyz', term: 'two'});
+  var exp0 = {
+    field: 'abc',
+    type: 'term',
+    term: 'one'
+  };
+  deepEqual(query.get('filters')[0], exp0);
+  var exp1 = {
+    field: 'xyz',
+    type: 'term',
+    term: 'two'
+  };
+  deepEqual(query.get('filters')[1], exp1);
+
+  var numFilters = query.get('filters').length;
+  query.replaceFilter({type: 'term', field: 'abc', term: 'three'});
+  equal(query.get('filters').length, numFilters);
+  exp0 = {
+    field: 'abc',
+    type: 'term',
+    term: 'three'
+  };
+  // deletes original filter and adds replacement to end
+  deepEqual(query.get('filters')[1], exp0);
+  deepEqual(query.get('filters')[0], exp1);
+
 });
 
 })(this.jQuery);
