@@ -5,10 +5,6 @@ this.recline.View = this.recline.View || {};
 
 (function($, my) {
   "use strict";
-// turn off unnecessary logging from VMM Timeline
-if (typeof VMM !== 'undefined') {
-  VMM.debug = false;
-}
 
 // ## Timeline
 //
@@ -28,7 +24,7 @@ my.Timeline = Backbone.View.extend({
 
   initialize: function(options) {
     var self = this;
-    this.timeline = new VMM.Timeline(this.elementId);
+    this.timeline = new TL.Timeline(this.elementId);
     this._timelineIsInitialized = false;
     this.listenTo(this.model.fields, 'reset', function() {
       self._setupTemporalField();

@@ -3669,7 +3669,6 @@ my.Timeline = Backbone.View.extend({
 
   initialize: function(options) {
     var self = this;
-    this.timeline = new VMM.Timeline(this.elementId);
     this._timelineIsInitialized = false;
     this.listenTo(this.model.fields, 'reset', function() {
       self._setupTemporalField();
@@ -3713,14 +3712,15 @@ my.Timeline = Backbone.View.extend({
     var data = this._timelineJSON();
     var config = this.state.get("timelineJSOptions");
     config.id = this.elementId;
-    this.timeline.init(config, data);
-    this._timelineIsInitialized = true
+    $('#vmm-timeline-id').height('100%');
+    this.timeline = new TL.Timeline('vmm-timeline-id', data.timeline);
+    this._timelineIsInitialized = true;
   },
 
   reloadData: function() {
     if (this._timelineIsInitialized) {
       var data = this._timelineJSON();
-      this.timeline.reload(data);
+      // this.timeline.reload(data);
     }
   },
 
@@ -3736,12 +3736,26 @@ my.Timeline = Backbone.View.extend({
     var start = this._parseDate(record.get(this.state.get('startField')));
     var end = this._parseDate(record.get(this.state.get('endField')));
     if (start) {
+      var d = moment(start);
       var tlEntry = {
-        "startDate": start,
-        "endDate": end,
-        "headline": String(record.get('title') || ''),
-        "text": record.get('description') || record.summary()
+        "start_date": {
+          "year": d.year(),
+          "month": d.month(),
+          "day": d.date()
+        },
+        "text": {
+          "headline": String(record.get('title') || ''),
+          "text": record.get('description') || record.summary()
+        }
       };
+      if (end) {
+        d = moment(end);
+        tlEntry.end_date = {
+          "year": d.year(),
+          "month": d.month(),
+          "day": d.date()
+        }
+      }
       return tlEntry;
     } else {
       return null;
@@ -3753,24 +3767,25 @@ my.Timeline = Backbone.View.extend({
     var out = {
       'timeline': {
         'type': 'default',
-        'headline': '',
-        'date': [
+        'title': '',
+        'events': [
         ]
       }
     };
     this.model.records.each(function(record) {
       var newEntry = self.convertRecord(record, self.fields);
+      // console.log('newEntry', newEntry);
       if (newEntry) {
-        out.timeline.date.push(newEntry); 
+        out.timeline.events.push(newEntry); 
       }
     });
     // if no entries create a placeholder entry to prevent Timeline crashing with error
-    if (out.timeline.date.length === 0) {
+    if (out.timeline.events.length === 0) {
       var tlEntry = {
         "startDate": '2000,1,1',
         "headline": 'No data to show!'
       };
-      out.timeline.date.push(tlEntry);
+      out.timeline.events.push(tlEntry);
     }
     return out;
   },
